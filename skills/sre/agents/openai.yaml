@@ -1,0 +1,14 @@
+interface:
+  display_name: Senior SRE
+  short_description: Investigate incidents, code, and guide reliability decisions
+  default_prompt: Use $sre to investigate this reliability problem, implement the
+    needed engineering work, and explain the evidence, decisions, and verification.
+  icon_small: assets/icon.svg
+  icon_large: assets/icon.svg
+policy:
+  products:
+  - chatgpt
+  - codex
+  - api
+  - atlas
+  allow_implicit_invocation: true

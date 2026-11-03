@@ -1,12 +1,19 @@
-# claude-skills
+# agent-skills
 
-A library of agent skills. Each skill is a folder in `skills/` with a `SKILL.md`.
+A tool-agnostic library of agent skills. Each skill is a folder in `skills/` with a `SKILL.md`
+(plain Markdown with `name` and `description` frontmatter), so any LLM agent that reads the
+Agent Skills format, or can be pointed at the files, can use them.
+
+## Use with other tools
+
+Copy or symlink the folders in `skills/` into the tool's skills directory (for example
+`~/.claude/skills/`, `~/.codex/skills/`), or load the `SKILL.md` text as instructions.
 
 ## Install in Claude Code
 
 ```
-/plugin marketplace add MeloMar-IT/claude-skills
-/plugin install claude-skills@claude-skills
+/plugin marketplace add MeloMar-IT/agent-skills
+/plugin install agent-skills@agent-skills
 ```
 
 After pushing changes: `/plugin marketplace update`.

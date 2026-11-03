@@ -1,11 +1,11 @@
 {
-  "name": "claude-skills",
+  "name": "agent-skills",
   "owner": { "name": "MeloMar-IT" },
   "plugins": [
     {
-      "name": "claude-skills",
+      "name": "agent-skills",
       "source": "./",
-      "description": "Personal skill library"
+      "description": "Portable agent skills (SKILL.md format)"
     }
   ]
 }

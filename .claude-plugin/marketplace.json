@@ -1,0 +1,11 @@
+{
+  "name": "claude-skills",
+  "owner": { "name": "MeloMar-IT" },
+  "plugins": [
+    {
+      "name": "claude-skills",
+      "source": "./",
+      "description": "Personal skill library"
+    }
+  ]
+}

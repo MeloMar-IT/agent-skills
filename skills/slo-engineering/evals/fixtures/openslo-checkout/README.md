@@ -1,0 +1,1 @@
+Checkout availability SLO agreed with the product owner: 99.5% of checkout API requests (`job="checkout"`, `handler="/api/checkout"`) succeed over a rolling 28 days. 5xx responses are failures; 4xx count as successful. The metric is the counter `http_requests_total{job,handler,code}`. Our generator rejects `openslo/checkout-availability.yaml`.

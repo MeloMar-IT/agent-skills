@@ -1,0 +1,39 @@
+groups:
+  - name: latency-slo
+    rules:
+      - record: slo:checkout_latency:error_ratio_rate5m
+        expr: 1 - (sum(rate(http_request_duration_seconds_bucket{job="checkout",le="1"}[5m])) / sum(rate(http_request_duration_seconds_count{job="checkout"}[5m])))
+      - record: slo:checkout_latency:error_ratio_rate30m
+        expr: 1 - (sum(rate(http_request_duration_seconds_bucket{job="checkout",le="1"}[30m])) / sum(rate(http_request_duration_seconds_count{job="checkout"}[30m])))
+      - record: slo:checkout_latency:error_ratio_rate1h
+        expr: 1 - (sum(rate(http_request_duration_seconds_bucket{job="checkout",le="1"}[1h])) / sum(rate(http_request_duration_seconds_count{job="checkout"}[1h])))
+      - record: slo:checkout_latency:error_ratio_rate6h
+        expr: 1 - (sum(rate(http_request_duration_seconds_bucket{job="checkout",le="1"}[6h])) / sum(rate(http_request_duration_seconds_count{job="checkout"}[6h])))
+      - record: slo:checkout_latency:error_ratio_rate28d
+        expr: 1 - (sum(increase(http_request_duration_seconds_bucket{job="checkout",le="1"}[28d])) / sum(increase(http_request_duration_seconds_count{job="checkout"}[28d])))
+      - alert: CheckoutLatencyBudgetBurnPage
+        expr: slo:checkout_latency:error_ratio_rate1h > (14.4 * 0.01) and slo:checkout_latency:error_ratio_rate5m > (14.4 * 0.01)
+        labels:
+          severity: page
+      - alert: CheckoutLatencyBudgetBurnTicket
+        expr: slo:checkout_latency:error_ratio_rate6h > (6 * 0.01) and slo:checkout_latency:error_ratio_rate30m > (6 * 0.01)
+        labels:
+          severity: ticket
+      - record: slo:export_latency:error_ratio_rate5m
+        expr: 1 - (sum(rate(export_duration_seconds_bucket{job="checkout",le="10"}[5m])) / sum(rate(export_duration_seconds_count{job="checkout"}[5m])))
+      - record: slo:export_latency:error_ratio_rate30m
+        expr: 1 - (sum(rate(export_duration_seconds_bucket{job="checkout",le="10"}[30m])) / sum(rate(export_duration_seconds_count{job="checkout"}[30m])))
+      - record: slo:export_latency:error_ratio_rate1h
+        expr: 1 - (sum(rate(export_duration_seconds_bucket{job="checkout",le="10"}[1h])) / sum(rate(export_duration_seconds_count{job="checkout"}[1h])))
+      - record: slo:export_latency:error_ratio_rate6h
+        expr: 1 - (sum(rate(export_duration_seconds_bucket{job="checkout",le="10"}[6h])) / sum(rate(export_duration_seconds_count{job="checkout"}[6h])))
+      - record: slo:export_latency:error_ratio_rate28d
+        expr: 1 - (sum(increase(export_duration_seconds_bucket{job="checkout",le="10"}[28d])) / sum(increase(export_duration_seconds_count{job="checkout"}[28d])))
+      - alert: ExportLatencyBudgetBurnPage
+        expr: slo:export_latency:error_ratio_rate1h > (14.4 * 0.01) and slo:export_latency:error_ratio_rate5m > (14.4 * 0.01)
+        labels:
+          severity: page
+      - alert: ExportLatencyBudgetBurnTicket
+        expr: slo:export_latency:error_ratio_rate6h > (6 * 0.01) and slo:export_latency:error_ratio_rate30m > (6 * 0.01)
+        labels:
+          severity: ticket

@@ -1,0 +1,24 @@
+apiVersion: openslo/v1
+kind: SLO
+metadata:
+  name: checkout-availability
+spec:
+  service: checkout
+  description: Checkout requests succeed
+  indicator:
+    ratioMetric:
+      counter: true
+      good:
+        metricSource:
+          type: Prometheus
+          query: sum(http_requests_total{job="checkout",handler="/api/checkout",code=~"5.."})
+      total:
+        metricSource:
+          type: Prometheus
+          query: sum(http_requests_total{job="checkout"})
+  timeWindow:
+    duration: 28d
+  budgetingMethod: Occurrence
+  objectives:
+    - displayName: Checkout requests succeed
+      target: 99.5

@@ -1,0 +1,37 @@
+schema: 1
+selection:
+  - { id: offered-openslo, repo: fixtures/openslo-checkout, task: "Fix the OpenSLO file so the error budget is computed for the agreed SLO.", expect: offered }
+  - { id: not-offered-port, repo: fixtures/netutil, task: "Make parse_port in netutil.py reject values outside 1-65535 and non-numeric input with ValueError.", expect: not-offered }
+instructions:
+  repeat: 4
+  scenarios:
+    - id: openslo-checkout-fix
+      repo: fixtures/openslo-checkout
+      task: "The OpenSLO file openslo/checkout-availability.yaml is rejected by our SLO generator and does not match the SLO agreed in README.md. Fix it so it is a valid OpenSLO v1 SLO and the error budget is computed for the agreed population and target."
+      policy: { shell: false, network: false, filesystem: write }
+      timeout_sec: 600
+      check: 'python3 -c "import re;t=open(\"openslo/checkout-availability.yaml\").read().replace(chr(92)+chr(34),chr(34));assert re.search(r\"apiVersion:\s*openslo/v1\",t) and re.search(r\"kind:\s*SLO\b\",t);assert re.search(r\"budgetingMethod:\s*Occurrences\b\",t) and re.search(r\"spec:\s*\n\s*query:\",t);assert (re.search(r\"\btarget:\s*0?\.995\b\",t) or re.search(r\"targetPercent:\s*99\.5\b\",t)) and not re.search(r\"\btarget:\s*99\",t);assert re.search(r\"-\s*duration:\s*28d\",t) and re.search(r\"isRolling:\s*true\",t);assert re.search(r\"indicator:\s*\n\s*(metadata|spec):\",t) and re.search(r\"spec:\s*\n\s*ratioMetric:\",t);p=re.findall(r\"^\s*(good|bad|total):\s*\n(?:(?!\s*(?:good|bad|total):).*\n)*?\s*query:\s*\|?\s*\n?\s*(.+)\",t,re.M);q=dict(p);ks=[k for k,_ in p];assert \"total\" in ks and len(set(ks)&{\"good\",\"bad\"})==1;assert all(re.search(r\"job=\x22checkout\x22\",v) and re.search(r\"handler=\x22/api/checkout\x22\",v) for v in q.values());assert re.search(r\"code=~\x225\.\.\x22\",q.get(\"bad\",\"\")) or re.search(r\"code!~\x225\.\.\x22\",q.get(\"good\",\"\"));assert not re.search(r\"\bcode\s*[!=]\",q[\"total\"])"'
+    - id: sloth-search-latency
+      repo: fixtures/sloth-search
+      task: "Write a Sloth spec at slos/search-latency.yaml for the search latency SLO described in README.md, and make the Makefile generate rules for the agreed window. Do not change the agreed target or threshold; other files in the repo may be changed."
+      policy: { shell: false, network: false, filesystem: write }
+      timeout_sec: 600
+      check: 'python3 -c "import re;s=open(\"slos/search-latency.yaml\").read().replace(chr(92)+chr(34),chr(34));mk=open(\"Makefile\").read();m=re.search(r\"buckets\s*=\s*[(\[]([^)\]]*)[)\]]\",open(\"app/metrics.py\").read());bs=[float(x) for x in re.sub(r\"#.*\",\"\",m.group(1)).split(\",\") if x.strip()];assert any(abs(x-0.3)<1e-9 for x in bs) and all(x in bs for x in (0.05,0.1,0.25,0.5,1,2.5));assert re.search(r\"version:\s*[\x22\x27]?prometheus/v1\",s) and re.search(r\"objective:\s*95(\.0)?\s*(\n|\Z|#)\",s);assert \"histogram_quantile\" not in s;Ls=set(v for v in re.findall(r\"\ble=\x22([^\x22]*)\x22\",s) if v!=\"+Inf\");assert Ls==set([\"0.3\"]);assert len(re.findall(r\"\{\{\s*\.window\s*\}\}\",s))>=3 and len(re.findall(r\"route=\x22/search\x22\",s))>=3;e=re.search(r\"error_query:\s*(?:[|>][-+]?\s*\n)?(.*?)(?=\n\s*total_query:|\n\s*\w+:|\Z)\",s,re.S).group(1);assert \"search_request_duration_seconds_count\" in e and \"le=\" in e and \"-\" in e;assert re.search(r\"sloth generate[^\n]*(--default-slo-period[= ]+28d|\s-p[= ]*28d)\",mk)"'
+    - id: prometheus3-le-normalization
+      repo: fixtures/le-normalization
+      task: "After the Prometheus upgrade described in NOTES.md, the latency SLO rules in rules/latency-slo.yaml broke. Fix them so the burn-rate alerts work again and both 28-day error budgets are right, including the days before the upgrade."
+      policy: { shell: false, network: false, filesystem: write }
+      timeout_sec: 600
+      check: 'python3 -c "import re;t=open(\"rules/latency-slo.yaml\").read();B=re.split(r\"(?m)^\s*- (?=record:|alert:)\",t)[1:];L=lambda b:[(o,v.replace(chr(92)*2,chr(92))) for o,_,v in re.findall(r\"\ble\s*(=~|=)\s*([\x22\x60])(.*?)\2\",b)];M=lambda m,s:bool(re.fullmatch(m[1],s)) if m[0]==\"=~\" else m[1]==s;F=lambda b:b.split(chr(10))[0].strip();rec=[b for b in B if b.startswith(\"record:\")];ck=lambda slug,new,old,forb:(lambda bs:len(bs)==5 and all(L(b) and all(M(m,new) for m in L(b)) for b in bs if not F(b).endswith(\"28d\")) and all(any(M(m,s) for m in L(b)) for b in bs if F(b).endswith(\"28d\") for s in (old,new)) and not any(M(m,s) for b in bs for m in L(b) for s in forb))([b for b in rec if slug in F(b)]);assert len(rec)==10 and len(B)-len(rec)==4;assert all((lambda v,e:len(v)==2 and all(abs(x-e)<1e-4 for x in v))([float(a)*float(c or 1) for a,c in re.findall(r\">\s*\(?\s*([0-9.]+)\s*(?:\*\s*([0-9.]+))?\",b)],0.1344 if \"severity: page\" in b else 0.056) for b in B if b.startswith(\"alert:\"));assert ck(\"checkout_latency\",\"1.0\",\"1\",(\"10\",\"10.0\",\"0.1\",\"2.5\",\"0.5\"));assert ck(\"export_latency\",\"10.0\",\"10\",(\"1\",\"1.0\",\"0.1\",\"2.5\",\"5\",\"100\"))"'
+    - id: pyrra-orders-fix
+      repo: fixtures/pyrra-orders
+      task: "Pyrra does not accept slos/orders-availability.yaml and the SLO does not match README.md. Fix the Pyrra SLO so it loads and its error budget covers exactly the orders API requests."
+      policy: { shell: false, network: false, filesystem: write }
+      timeout_sec: 600
+      check: 'python3 -c "import re;t=open(\"slos/orders-availability.yaml\").read().replace(chr(92)+chr(34),chr(34));assert re.search(r\"apiVersion:\s*pyrra\.dev/v1alpha1\",t) and re.search(r\"kind:\s*ServiceLevelObjective\",t);assert re.search(r\"target:\s*[\x22\x27]99\.5[\x22\x27]\",t);assert re.search(r\"window:\s*[\x22\x27]?(28d|4w)\b\",t);assert not re.search(r\"sum\(|rate\(|increase\(|\[\d+[smhdw]\]\",t);e=re.search(r\"errors:\s*\n\s*metric:\s*(.+)\",t).group(1);a=re.search(r\"total:\s*\n\s*metric:\s*(.+)\",t).group(1);assert re.match(r\"[\x22\x27]?http_requests_total\{\",e) and re.match(r\"[\x22\x27]?http_requests_total\{\",a);assert all(re.search(r\"job=\x22orders\x22\",v) and re.search(r\"handler=\x22/api/orders\x22\",v) for v in (e,a));assert re.search(r\"code=~\x225\.\.\x22\",e) and not re.search(r\"\bcode\s*[!=]\",a)"'
+conflicts:
+  - { id: against-approved, with: all }
+context:
+  - { id: coder-budget, max_instruction_tokens: 3000, max_description_chars: 160 }
+tools:
+  - { id: read-only, policy: { shell: false, network: false, filesystem: read } }

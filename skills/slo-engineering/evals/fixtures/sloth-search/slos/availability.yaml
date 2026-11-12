@@ -1,0 +1,20 @@
+version: "prometheus/v1"
+service: "search"
+labels:
+  team: search
+slos:
+  - name: "requests-availability"
+    objective: 99.9
+    description: "Search requests do not fail with 5xx."
+    sli:
+      events:
+        error_query: sum(rate(search_requests_total{job="search",route="/search",code=~"5.."}[{{.window}}]))
+        total_query: sum(rate(search_requests_total{job="search",route="/search"}[{{.window}}]))
+    alerting:
+      name: SearchAvailability
+      page_alert:
+        labels:
+          severity: page
+      ticket_alert:
+        labels:
+          severity: ticket

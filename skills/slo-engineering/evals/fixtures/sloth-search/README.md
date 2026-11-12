@@ -1,0 +1,1 @@
+Prometheus 3.1 scrapes job `search`. Product owner agreed SLO: 95% of `/search` requests answered within 300 ms, rolling 28 days. Sloth specs live in `slos/`; the Makefile target `rules` generates the Prometheus rules from them. The service code is in `app/`.

@@ -1,0 +1,15 @@
+apiVersion: pyrra.dev/v1alpha1
+kind: ServiceLevelObjective
+metadata:
+  name: orders-availability
+  namespace: monitoring
+spec:
+  target: 0.995
+  window: 28d
+  description: Orders API requests succeed.
+  indicator:
+    ratio:
+      errors:
+        metric: sum(rate(http_requests_total{code=~"5.."}[5m]))
+      total:
+        metric: sum(rate(http_requests_total{job="orders",handler="/api/orders"}[5m]))

@@ -1,0 +1,5 @@
+service,owning_team,owner_contact
+checkout-api,checkout,Jonas Weber
+payments-gateway,payments-sre,Sara Lind
+orders-db,database,Wei Zhang
+ledger-sync,data-platform,Kofi Mensah

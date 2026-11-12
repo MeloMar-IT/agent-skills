@@ -1,0 +1,31 @@
+schema: 1
+selection:
+  - { id: offered-case, repo: fixtures/review-triggers, task: Decide which incidents need a postmortem review and who should facilitate it, expect: offered }
+  - { id: other-case, repo: fixtures/other-task, task: Add a --verbose flag to export.py that prints each row count., expect: not-offered }
+instructions:
+  repeat: 4
+  scenarios:
+    - id: review-triggers
+      repo: fixtures/review-triggers
+      task: "Using postmortem facilitation practice and our local thresholds in policy.md, decide which postmortem reviews to schedule for the incidents in incidents.csv. Write needs_review.txt with one line per review to schedule, holding only the incident ID that review is filed under, sorted."
+      policy: { shell: false, network: false, filesystem: write }
+      timeout_sec: 600
+      check: "python3 -c \"s={l.split()[0] for l in open('needs_review.txt') if l.startswith('INC-')};e={'INC-101','INC-102','INC-103','INC-104','INC-105','INC-110','INC-112','INC-113','INC-114','INC-119'};assert s==e,sorted(s^e)\""
+    - id: facilitator-and-invites
+      repo: fixtures/facilitator-and-invites
+      task: "Using postmortem facilitation practice, choose the facilitator and the required and optional invitees for the review of the incident in incident.md, using people.csv and services.csv. Write plan.json as {\"facilitator\": name, \"required\": [names], \"optional\": [names]} with names exactly as in people.csv; set facilitator to the string external if nobody in people.csv can facilitate."
+      policy: { shell: false, network: false, filesystem: write }
+      timeout_sec: 600
+      check: "python3 -c \"import json;p=json.load(open('plan.json'));r=set(p['required']);need={'Kofi Mensah','Dev Patel','Omar Haddad','Ana Silva','Carlos Mendes','Wei Zhang','Ben Okafor','Jonas Weber','Sara Lind'};bad={'Priya Nair','Grace Kim','Rita Gomez','Lea Park','Tom Berg','Hana Ito','Elena Rossi'};assert p['facilitator']=='external',p['facilitator'];assert need<=r,need-r;assert not r&bad,r&bad\""
+    - id: debrief-interview-guide
+      repo: fixtures/debrief-interview-guide
+      task: "Using postmortem facilitation practice, prepare the one-on-one debrief interview guide for Ana Silva, Ben Okafor and Omar Haddad from timeline.md. Write questions.md with a section headed `## <full name>` per person and at least three questions each, one per line as `- [T<n>] <question>?`, where T<n> is the timeline event the question is about. Use only that line format for bullets in those sections."
+      policy: { shell: false, network: false, filesystem: write }
+      timeout_sec: 600
+      check: "python3 -c \"import re;t=open('questions.md').read();own={'Ana Silva':{'T3','T5'},'Ben Okafor':{'T1','T7'},'Omar Haddad':{'T3'}};sec={p.split(chr(10))[0].strip():p.split(chr(10))[1:] for p in re.split(r'(?m)^## +',t)[1:]};fmt=re.compile(r'- \\[(T\\d+)\\] (.+\\?)\\s*$');bad=re.compile(r'\\bwhy\\b|\\b(should|could|would|must)(n.t| not)? have\\b|\\bfailed to\\b|\\bdidn.t you\\b|\\bforg[oe]t|\\bmistake|\\bcareless|\\bobvious|\\bjust\\b|\\bsimply\\b|\\bclearly\\b',re.I);aux=re.compile(r'(did|do|does|were|was|is|are|have|has|had|could|should|would|can|will)\\b',re.I);L={n:[l for l in sec.get(n,[]) if l.startswith('- ')] for n in own};M={n:[fmt.match(l) for l in L[n]] for n in own};assert all(len(L[n])>=3 and all(M[n]) for n in own),L;Q=[(n,m.group(1),m.group(2)) for n in own for m in M[n]];assert all(e in own[n] for n,e,q in Q),Q;assert not [q for n,e,q in Q if bad.search(q) or aux.match(q)],[q for n,e,q in Q if bad.search(q) or aux.match(q)]\""
+conflicts:
+  - { id: against-approved, with: all }
+context:
+  - { id: coder-budget, max_instruction_tokens: 3000, max_description_chars: 160 }
+tools:
+  - { id: read-only, policy: { shell: false, network: false, filesystem: read } }

@@ -1,0 +1,20 @@
+id,opened_utc,initial_sev,final_sev,user_impact_minutes,data_loss,detected_by,restore_action,duplicate_of,summary
+INC-101,2026-10-02T08:10Z,SEV2,SEV2,12,no,alert,none,,Checkout latency high until autoscaling caught up
+INC-102,2026-10-04T13:00Z,SEV3,SEV3,45,no,alert,none,,Search results degraded for EU users
+INC-103,2026-10-07T02:30Z,SEV3,SEV3,0,yes,alert,none,,Nightly export overwrote 312 draft order notes; no outage
+INC-104,2026-10-09T17:45Z,SEV3,SEV3,8,no,customer,none,,Password-reset emails delayed; reported by a customer; queue drained on its own
+INC-105,2026-10-12T11:05Z,SEV3,SEV3,6,no,alert,manual-rollback,,Bad image-service config push; on-call rolled it back
+INC-106,2026-10-14T09:00Z,SEV2,SEV4,0,no,alert,none,,Synthetic probe misconfigured; reclassified as false alarm
+INC-107,2026-10-12T11:07Z,SEV3,SEV3,6,no,alert,manual-rollback,INC-105,Same image-service config push seen in second region
+INC-108,2026-10-18T15:20Z,SEV3,SEV3,20,no,alert,none,,Report generation slow; recovered without action
+INC-109,2026-10-21T04:00Z,SEV4,SEV4,0,no,alert,none,,Disk usage warning on batch host; cleared by scheduled cleanup
+INC-110,2026-10-23T10:40Z,SEV3,SEV2,15,no,alert,none,,Card payments failing for one acquirer
+INC-111,2026-10-26T14:10Z,SEV3,SEV3,0,no,canary,automatic-rollback,,Canary analysis stopped a bad build automatically
+INC-112,2026-10-29T16:30Z,SEV3,SEV3,10,no,staff,none,,Support agent noticed invoice PDFs failing to render
+INC-113,2026-10-30T09:15Z,SEV4,SEV4,3,no,chance,none,,Engineer noticed stale pricing cache while debugging something else
+INC-114,2026-11-02T22:40Z,SEV3,SEV3,0,no,alert,manual-failover,,Primary cache node failed; on-call failed over by hand before users noticed
+INC-115,2026-10-23T10:50Z,SEV3,SEV3,5,no,alert,manual-data-repair,INC-110,Acquirer failures left 40 orders stuck; repaired by hand
+INC-116,2026-11-04T13:00Z,SEV3,SEV3,5,no,alert,auto-failover,,Replica promoted automatically; no human action
+INC-117,2026-11-05T08:00Z,SEV1,SEV3,10,no,alert,none,,Suspected outage; reclassified after partial impact confirmed
+INC-118,2026-11-06T12:00Z,SEV3,SEV3,29,no,alert,none,,Slow uploads; recovered on its own
+INC-119,2026-11-08T12:00Z,SEV3,SEV3,30,no,alert,none,,Slow downloads; recovered on its own

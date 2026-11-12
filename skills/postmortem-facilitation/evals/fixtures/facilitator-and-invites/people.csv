@@ -1,0 +1,18 @@
+name,team,manager,title,trained_facilitator,notes
+Rita Gomez,engineering,,Director of Engineering,yes,
+Grace Kim,reliability,Rita Gomez,Head of Reliability,yes,runs the postmortem program and usually facilitates reviews
+Tom Berg,payments-sre,Grace Kim,Engineering Manager,no,
+Ana Silva,payments-sre,Tom Berg,SRE,no,
+Omar Haddad,payments-sre,Tom Berg,SRE,yes,
+Sara Lind,payments-sre,Tom Berg,Tech Lead,no,
+Lea Park,checkout,Rita Gomez,Engineering Manager,no,
+Ben Okafor,checkout,Lea Park,Software Engineer,no,
+Jonas Weber,checkout,Lea Park,Senior Engineer,yes,
+Hana Ito,platform,Rita Gomez,Engineering Manager,no,
+Carlos Mendes,platform,Hana Ito,Staff Engineer,no,
+Wei Zhang,database,Hana Ito,Database Engineer,no,
+Kofi Mensah,data-platform,Rita Gomez,Engineering Manager,no,
+Priya Nair,data-platform,Kofi Mensah,Staff Engineer,yes,
+Victor Lang,support,,VP Customer Support,no,
+Elena Rossi,support,Victor Lang,Support Lead,yes,
+Dev Patel,support,Elena Rossi,Support Agent,no,

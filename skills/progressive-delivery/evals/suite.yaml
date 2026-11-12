@@ -1,0 +1,37 @@
+schema: 1
+selection:
+  - { id: canary-offered, repo: fixtures/canary-gate, task: "Review our canary analysis and tell me whether the gate is sound", expect: offered }
+  - { id: pagination-not-offered, repo: fixtures/pagination, task: "Fix page_count in pages.py: page_count(10, 5) returns 3 but there are 2 pages, and page_count(0, 5) must be 0.", expect: not-offered }
+instructions:
+  repeat: 4
+  scenarios:
+    - id: percentage-rollout-bucketing
+      repo: fixtures/flag-rollout
+      task: "Our percentage rollout in flags.py is broken: users flip between old and new behaviour. Rewrite is_enabled so feature flags follow every rule in README.md; keep the signatures and use only the standard library."
+      policy: { shell: true, network: false, filesystem: write }
+      timeout_sec: 600
+      check: "test $(for s in 1 2; do PYTHONHASHSEED=$s python3 -c 'import flags,hashlib;print(hashlib.sha256(bytes(flags.is_enabled(flags.Flag(\"x\",0.3),\"u%d\"%i) for i in range(5000))).hexdigest())'; done | sort -u | wc -l) -eq 1 && python3 -c 'import flags;F=flags.Flag;ids=[\"u%d\"%i for i in range(100000)];on=lambda k,p:{u for u in ids if flags.is_enabled(F(k,p),u)};f=lambda k,p:len(on(k,p))/len(ids);assert abs(f(\"x7\",0.07)-0.07)<0.004;assert abs(f(\"x29\",0.29)-0.29)<0.005;assert on(\"r\",0.10)<=on(\"r\",0.20);o=len(on(\"a\",0.5)&on(\"b\",0.5))/len(ids);assert 0.23<o<0.27,o;assert not any(flags.is_enabled(F(\"z\",1.0),u) for u in (None,\"\"));assert not on(\"z\",0.0) and len(on(\"z\",1.0))==len(ids);big=[\"v%d\"%i for i in range(300000)];n=sum(flags.is_enabled(F(\"t\",0.0003),u) for u in big);assert 54<=n<=126,n;O=F(\"o\",0.5,\"org\");assert all(flags.is_enabled(O,\"a\",\"g%d\"%i)==flags.is_enabled(O,\"b\",\"g%d\"%i) for i in range(500));assert 0.4<sum(flags.is_enabled(O,\"a\",\"g%d\"%i) for i in range(2000))/2000<0.6;assert not any(flags.is_enabled(F(\"o\",1.0,\"org\"),\"a\",g) for g in (None,\"\"));assert flags.is_enabled(F(\"o\",1.0),\"a\",None);print(\"ok\")'"
+    - id: flag-cleanup-two-phase
+      repo: fixtures/flag-cleanup
+      task: "Do the flag cleanup for the feature flags new-pricing (fully rolled out, on for everyone), fast-search (killed, off for everyone) and legacy-export (killed, off for everyone): remove as much of both as is safe to merge now under DEPLOY.md, keep production behaviour unchanged, and list anything that must wait for a later release in FOLLOWUP.md."
+      policy: { shell: true, network: false, filesystem: write }
+      timeout_sec: 600
+      check: "python3 -c 'import json,pathlib,flagclient;seen=set();flagclient.is_on=lambda k,default=False:seen.add(k) or False;import pricing,search,invoice_job,export;assert export.export_rows([(1,2)])==[[1,2]];assert \"legacy-export\" not in seen;assert pricing.price(100.0)==95.0;assert invoice_job.invoice_line(100.0)==\"95.00 Loyalty discount applied\";assert search.search(\"q\")==[\"slow:q\"];assert not seen&{\"new-pricing\",\"fast-search\"},seen;d=json.loads(pathlib.Path(\"flags.json\").read_text());assert d.get(\"new-pricing\") is True and d.get(\"fast-search\") is False and d.get(\"dark-mode\") is True and \"legacy-export\" not in d,d;t=pathlib.Path(\"FOLLOWUP.md\").read_text();assert \"new-pricing\" in t and \"fast-search\" in t;print(\"ok\")'"
+    - id: canary-gate-verdict
+      repo: fixtures/canary-gate
+      task: "Rewrite the canary analysis in gate.py to follow README.md: route_verdict must return PASS, FAIL or INCONCLUSIVE, and release_verdict and the command line must use it."
+      policy: { shell: true, network: false, filesystem: write }
+      timeout_sec: 600
+      check: "python3 -c 'import gate;V=gate.route_verdict;cases=[((0,400,10,10000),\"INCONCLUSIVE\"),((48,48000,190,192000),\"PASS\"),((60,9000,10,10000),\"FAIL\"),((1,9000,0,1000),\"PASS\"),((25,9000,0,1000),\"INCONCLUSIVE\"),((0,0,5,1000),\"INCONCLUSIVE\")];bad=[(c,e,V(*c)) for c,e in cases if V(*c)!=e];assert not bad,bad;print(\"ok\")' && test $(python3 gate.py metrics.json) = FAIL"
+    - id: canary-bake-plan
+      repo: fixtures/canary-bake
+      task: "A bad release passed our canary analysis at the 1% step after a few hundred requests. Fix verdict in bakegate.py per README.md, implement decide, and set the canary bake time of every step in rollout.json so a healthy canary passes each step and no step bakes longer than needed."
+      policy: { shell: true, network: false, filesystem: write }
+      timeout_sec: 600
+      check: "python3 -c 'import json,bakegate as g;V=g.verdict;D=g.decide;R=[\"browse\",\"search\",\"checkout\"];mk=lambda f,n:{m:{r:f(m,r) for r in R} for m in range(1,n+1)};assert V(0,0)==\"INCONCLUSIVE\" and V(0,50)!=\"PASS\" and V(0,2000)!=\"PASS\" and V(1,3000)!=\"PASS\" and V(0,4000)==\"PASS\" and V(30,10000)==\"FAIL\" and V(12,10000)==\"INCONCLUSIVE\";assert D(mk(lambda m,r:(0,100*m),51),51)==\"promote\";assert D(mk(lambda m,r:(0,1000*m),20),51)==\"wait\",\"promoted or stopped on an early pass\";assert D(mk(lambda m,r:(5*max(m-5,0) if r==\"search\" else 0,100*m),20),51)==\"rollback\",\"early fail\";assert D(mk(lambda m,r:(0 if m<=52 else 5*(m-52),100*m),60),60)==\"rollback\";assert D(mk(lambda m,r:(min(4*m,20),100*m),51),51)==\"promote\",\"warm-up counted\";assert D(mk(lambda m,r:(0,100*m),20),20)==\"extend\",\"inconclusive at the end\";assert D(mk(lambda m,r:(0,100*m),20),20,True)==\"hold\",\"extended twice\";assert D(mk(lambda m,r:(0,5*m if r==\"checkout\" else 100*m),51),51)==\"extend\",\"small route hidden\";S=json.load(open(\"rollout.json\"))[\"steps\"];T=json.load(open(\"traffic.json\"));rpm=T[\"requests_per_minute\"];sh=T[\"route_share\"];need=lambda w:max(10,next(m for m in range(1,10000) if all(V(0,int(rpm*w*x*max(m-5,0)))==\"PASS\" for x in sh.values())));bad=[(s,need(s[\"weight\"])) for s in S if s[\"weight\"]<1 and not need(s[\"weight\"])<=s[\"bake_minutes\"]<=need(s[\"weight\"])+5];assert not bad,bad;assert S[-1]=={\"weight\":1.0,\"bake_minutes\":0};print(\"ok\")'"
+conflicts:
+  - { id: against-approved, with: all }
+context:
+  - { id: coder-budget, max_instruction_tokens: 3000, max_description_chars: 160 }
+tools:
+  - { id: read-only, policy: { shell: false, network: false, filesystem: read } }

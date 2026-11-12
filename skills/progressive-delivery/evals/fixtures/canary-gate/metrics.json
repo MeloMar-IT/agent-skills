@@ -1,0 +1,5 @@
+{"routes": {
+  "/browse": {"canary": {"requests": 120000, "probes": 6000, "errors": 40}, "control": {"requests": 480000, "probes": 6000, "errors": 170}},
+  "/search": {"canary": {"requests": 30000, "probes": 1000, "errors": 20}, "control": {"requests": 120000, "probes": 1000, "errors": 85}},
+  "/checkout": {"canary": {"requests": 12000, "probes": 9000, "errors": 12}, "control": {"requests": 100000, "probes": 10000, "errors": 9}}
+}}

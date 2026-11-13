@@ -1,0 +1,43 @@
+schema: 1
+selection:
+  - { id: offered-case, repo: fixtures/vague-to-ready, task: "Using issue writing practice, turn request.md into a story for the Foundry.", expect: offered }
+  - { id: other-case, repo: fixtures/not-offered, task: "Add a --top N option to report.py that prints only the N largest totals.", expect: not-offered }
+instructions:
+  repeat: 4
+  scenarios:
+    - id: vague-to-ready
+      repo: fixtures/vague-to-ready
+      task: "Using issue writing practice, turn request.md into one Foundry story in story.md with the headings ## Context, ## Scope, ## Out of scope, ## Acceptance criteria, ## Verification, ## Unknowns, ending with the lines `Depends on:`, `Risk:`, `Approval:`, `Labels: <labels to set now, or none>`. Do not change the code."
+      policy: { shell: true, network: false, filesystem: write }
+      timeout_sec: 600
+      check: 'python3 -c ''import re;t=open("story.md").read();sec=lambda n:(lambda m:m.group(1) if m else None)(re.search(r"^#+\s*"+n+r"\b[^\n]*\n(.*?)(?=^#+\s|\Z)",t,re.S|re.M|re.I));S={n:sec(n) for n in ["Context","Scope","Out of scope","Acceptance criteria","Verification","Unknowns"]};assert all(v is not None for v in S.values());sc=S["Scope"];assert "src/invoices.py" in sc and "tests/test_invoices.py" in sc;A=S["Acceptance criteria"];assert re.search("excel|xlsx",S["Out of scope"],re.I) and not re.search("excel|xlsx",sc+A,re.I);assert re.search("fast|speed|performance|latency",S["Unknowns"],re.I);assert not re.search(r"\d\s*(ms|s|sec|seconds?|minutes?)\b",A,re.I) and len(re.findall(r"^\s*(?:[-*]|\d+[.)])\s",A,re.M))>=2 and not re.search("fast|quick|looks|properly|as expected",A,re.I);c=re.findall(r"`([^`]+)`",S["Verification"]);assert any(re.search("python3|pytest",x) for x in c) and not any(re.search("sleep|date|curl|wget|http|manual|random",x) for x in c);l=re.search(r"^Labels:(.*)$",t,re.M);assert l and not re.search("factory_go|factory:working",l.group(1),re.I);assert "csv" not in open("src/invoices.py").read().lower()'''
+    - id: deterministic-verification
+      repo: fixtures/deterministic-verification
+      task: "Using deterministic verification practice, rewrite only the ## Verification section of stories/precision.md: one bullet per check, each a single backticked offline command run from the repository root that only calls the CLI, grep or test, exits 0 once the story is done, and the checks for new behaviour must fail on today's code. Do not change other sections, the code or add test files."
+      policy: { shell: true, network: false, filesystem: write }
+      timeout_sec: 600
+      check: 'python3 -c ''import re,subprocess,shutil,tempfile;t=open("stories/precision.md").read();v=re.search(r"^#+\s*Verification\b[^\n]*\n(.*?)(?=^#+\s|\Z)",t,re.S|re.M).group(1);c=re.findall(r"`([^`]+)`",v);assert len(c)>=5 and len(re.findall(r"^\s*(?:[-*]|\d+[.)])\s",v,re.M))==len(c);assert not re.search("sleep|date|curl|wget|http|random|look|manual",v,re.I);assert "0.621371" in t and "Risk: low" in t;run=lambda d:[subprocess.run(x,shell=True,cwd=d,capture_output=True,timeout=30).returncode for x in c];assert sum(r!=0 for r in run("."))>=4;d=tempfile.mkdtemp()+"/w";shutil.copytree(".",d);p=d+"/src/units.py";s=open(p).read();N=chr(10).join(["p.add_argument(\"--precision\",type=int)","a=p.parse_args(argv)","if a.precision is not None and a.precision<0: p.error(\"negative\")","r=convert(a.value,a.src,a.dst)","print(r if a.precision is None else f\"{r:.{a.precision}f}\")"]);s2=re.sub(r"a = p\.parse_args\(argv\).*\Z",lambda m:N,s,flags=re.S);assert s2!=s;open(p,"w").write(s2);open(d+"/README.md","a").write(chr(10)+"--precision N: decimal places"+chr(10));assert all(r==0 for r in run(d));assert any(r==0 for r in run("."));open(p,"w").write(s2.replace("f\"{r:.{a.precision}f}\"","str(round(r,a.precision))"));assert any(r!=0 for r in run(d));open(p,"w").write(s2.replace("p.error(\"negative\")","raise SystemExit(1)"));assert any(r!=0 for r in run(d))'''
+    - id: split-to-size-limit
+      repo: fixtures/split-to-size-limit
+      task: "Using story splitting practice, split request.md into Foundry stories that respect CONTRIBUTING.md. Write one file per story as stories/<slug>.md with a `Files:` line followed by one `- path` bullet per file, a line `Depends on: none` or `Depends on: <story file names, comma separated>`, and a ## Verification section. Do not change the code."
+      policy: { shell: true, network: false, filesystem: write }
+      timeout_sec: 600
+      check: 'python3 -c ''import re,glob,os;st={os.path.basename(f)[:-3]:open(f).read().replace("`","") for f in glob.glob("stories/*.md")};assert st;files={k:re.findall(r"^[ \t]*-[ \t]+(\S+)",re.search(r"^Files:[^\n]*\n((?:[ \t]*-[^\n]*\n?)*)",t,re.M).group(1),re.M) for k,t in st.items()};bn=lambda x:re.sub(r"\.md$","",os.path.basename(x.strip()));deps={k:[bn(x) for x in re.search(r"^Depends on:(.*)$",t,re.M).group(1).split(",") if x.strip() and x.strip().lower()!="none"] for k,t in st.items()};assert all(len(v)<=2 for v in files.values());assert sorted(sum(files.values(),[]))==sorted("src/filter.py src/state.py src/cli.py tests/test_filter.py tests/test_state.py tests/test_cli.py README.md".split());home={f:k for k,v in files.items() for f in v};assert all(home["src/%s.py"%x]==home["tests/test_%s.py"%x] for x in ["filter","state","cli"]);cyc=lambda k,p:any(d in p or cyc(d,p|{d}) for d in deps[k]);assert not any(cyc(k,frozenset([k])) for k in deps);anc=lambda k:set().union(*[{d}|anc(d) for d in deps[k]]);c=home["src/cli.py"];assert {home["src/filter.py"],home["src/state.py"]}<=anc(c);r=home["README.md"];assert r!=c and c in anc(r);assert all((lambda m:m and all(os.path.splitext(os.path.basename(f))[0] in m.group(1) for f in files[k] if f.startswith("tests/")))(re.search(r"^#+\s*Verification\b[^\n]*\n(.*?)(?=^#+\s|\Z)",t,re.S|re.M)) for k,t in st.items())'''
+    - id: irreversible-change-gate
+      repo: fixtures/irreversible-change-gate
+      task: "Using issue writing practice, write the Foundry story for request.md as story.md with ## Context, ## Scope, ## Acceptance criteria, ## Verification, ## Unknowns, ending with lines `Risk: <low|medium|high>`, `Approval: <who, and whether given>`, `Labels: <labels to set now, or none>`."
+      policy: { shell: true, network: false, filesystem: write }
+      timeout_sec: 600
+      check: 'python3 -c ''import re;t=open("story.md").read();g=lambda k:(re.search(r"^"+k+r":(.*)$",t,re.M|re.I) or [0,""])[1];assert g("Risk").strip().lower().startswith("high");A=g("Approval");assert "Priya" in A and re.search(r"pending|required|needed|missing|awaiting|requested|not (yet )?(given|recorded)",A,re.I) and not re.search(r"approved by|granted",A,re.I);assert not re.search("factory_go|factory:working",g("Labels"),re.I);assert re.search("backup|snapshot|dump",t,re.I);assert re.search(r"irreversib|cannot be undone|not reversible",t,re.I);U=re.search(r"^#+\s*Unknowns\b[^\n]*\n(.*?)(?=^#+\s|\Z)",t,re.S|re.M).group(1);assert re.search("read|consumer|usage|quer|depend",U,re.I)'''
+    - id: label-readiness-triage
+      repo: fixtures/label-readiness-triage
+      task: 'Using readiness triage practice, decide for each issue in issues/ whether its text is ready for a person to add the Factory_go label now, by the rules in docs/foundry.md (ready means the text is complete; a person still reviews and sets the label). Write triage.json keyed by issue number (digits only), each value {"ready": true or false, "reason": "short text"}.'
+      policy: { shell: true, network: false, filesystem: write }
+      timeout_sec: 600
+      check: 'python3 -c ''import json,re;d=json.load(open("triage.json"));k={re.sub(r"\D","",a):v for a,v in d.items()};assert len(d)==7 and set(k)=={"401","402","403","404","405","406","407"};assert all(isinstance(v,dict) and isinstance(v.get("ready"),bool) and v["ready"]==(n in ("401","405")) for n,v in k.items());R=lambda n:str(k[n].get("reason",""));assert re.search("unknown|open|unanswered|retr",R("402"),re.I);assert re.search("owner|marta|requester|dana",R("403"),re.I);assert re.search("date|clock|time|determin",R("404"),re.I);assert re.search("grep|option|exit|flag|pattern|-c",R("406"),re.I);assert re.search("owner|jonas|marta|build|orders",R("407"),re.I)'''
+conflicts:
+  - { id: against-approved, with: all }
+context:
+  - { id: coder-budget, max_instruction_tokens: 3000, max_description_chars: 160 }
+tools:
+  - { id: read-only, policy: { shell: false, network: false, filesystem: read } }

@@ -1,0 +1,11 @@
+[14:52Z] Sam Lee: heading out, back online for my 17:00Z shift
+[16:40Z] Ana Silva (IC): status: EU checkout error rate 6%, stable for 30 min
+[16:41Z] Ana Silva (IC): ACT-1 roll back payment-svc to v41, owner Dev Patel: done 16:10Z, no improvement
+[16:42Z] Ana Silva (IC): ACT-2 fail payments-db over to the replica, owner Omar Haddad: in progress
+[16:43Z] Ana Silva (IC): ACT-3 raise the payment-svc DB pool to 80, owner Dev Patel: proposed, waiting for go-ahead
+[16:44Z] Ana Silva (IC): ACT-4 hide the promo banner to cut load, owner Lea Park: done 16:30Z
+[16:44Z] Ana Silva (IC): H1 bad deploy v42: rejected, the rollback changed nothing. H2 payments-db primary disk latency: investigating. H3 promo traffic spike: weakened
+[16:45Z] Ana Silva (IC): I promised Grace Kim (customer support lead) an update at 17:30Z. Next public status page update is due 17:15Z
+[16:58Z] Omar Haddad: failover at 50%
+[17:00Z] Ana Silva (IC): my shift is over. Handing IC to Sam Lee. Sam, you have it. Signing off.
+[17:03Z] Dev Patel: Sam Lee, do I go ahead with ACT-3?

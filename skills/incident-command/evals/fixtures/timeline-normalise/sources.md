@@ -1,0 +1,2 @@
+- ops-log.txt is the #inc-orders export for 2026-03-08, in message order; times are America/New_York wall clock as shown, with no offset.
+- metrics.log is in UTC.

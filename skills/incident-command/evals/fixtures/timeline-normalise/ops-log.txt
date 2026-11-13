@@ -1,0 +1,3 @@
+[01:50] Rae Cole: pager fired for orders-worker queue lag, it started around 01:45 I think
+[02:30] Rae Cole: scaled orders-worker to 12 replicas
+[03:40] Jon Weber: queue lag is back under the threshold

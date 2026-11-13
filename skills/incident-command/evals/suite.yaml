@@ -1,0 +1,37 @@
+schema: 1
+selection:
+  - { id: offered-case, repo: fixtures/declare-severity, task: "Run incident command for the checkout errors in chat.md: declare the incident and propose roles.", expect: offered }
+  - { id: not-offered-case, repo: fixtures/not-offered, task: "Add a --since YYYY-MM-DD option to report.py that skips rows whose date column is earlier.", expect: not-offered }
+instructions:
+  repeat: 4
+  scenarios:
+    - id: declare-severity
+      repo: fixtures/declare-severity
+      task: "Using incident command practice, draft the incident declaration for what chat.md shows, using policy.md and roster.md. The incident is declared now, at 09:20Z. Write declaration.md starting with these lines: `Severity: SEVn (provisional)` or `Severity: SEVn (confirmed)`, `IC: <name>`, `Ops lead: <name>`, `Comms lead: <name or unassigned>`, `Scribe: <name or unassigned>`, `Next update: HH:MMZ`, then a short summary."
+      policy: { shell: false, network: false, filesystem: write }
+      timeout_sec: 600
+      check: "python3 -c \"import re;t=open('declaration.md').read();g=lambda k:(re.search(r'(?im)^[^A-Za-z]*'+k+r'[^A-Za-z:]*:(.*)$',t) or [0,''])[1];s=g('Severity');assert re.search(r'SEV ?1\\b',s,re.I) and 'provisional' in s.lower(),s;assert 'Priya Nair' in g('IC'),g('IC');assert 'Dev Patel' in g('Ops lead') and 'Priya' not in g('Ops lead');assert 'Priya Nair' in g('Comms lead'),g('Comms lead');assert re.search(r'09:50 ?Z',g('Next update')),g('Next update')\""
+    - id: timeline-normalise
+      repo: fixtures/timeline-normalise
+      task: "Using incident command practice, build the incident timeline from ops-log.txt and metrics.log (sources.md says which clock each uses). Write timeline.json: a list sorted by time with one object per timestamped line in those files, plus one for any start time mentioned inside a message, each {\"source\": file name, \"original\": the timestamp as written, \"utc\": \"YYYY-MM-DDTHH:MMZ\" or null, \"kind\": one of onset, detection, action, communication, other, \"basis\": one of observed, reported, inferred, hypothesis, unknown, \"event\": short text}."
+      policy: { shell: false, network: false, filesystem: write }
+      timeout_sec: 600
+      check: "python3 -c \"import json,re;T=json.load(open('timeline.json'));s=str;u=lambda e:(re.match(r'(\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d)',s(e.get('utc') or '')) or [0,None])[1];ops=lambda o:[e for e in T if 'ops' in s(e.get('source')) and o in s(e.get('original')) and e.get('kind')!='onset'];a=ops('01:50');assert len(a)==1 and u(a[0])=='2026-03-08T06:50',a;c=ops('03:40');assert len(c)==1 and u(c[0])=='2026-03-08T07:40',c;g=ops('02:30');assert len(g)==1,g;g=g[0];assert u(g) in (None,'2026-03-08T06:30','2026-03-08T07:30') and g.get('basis')!='observed' and '06:30' in s(g) and '07:30' in s(g),g;O=[e for e in T if e.get('kind')=='onset'];assert O and all(u(e)=='2026-03-08T06:45' and e.get('basis')!='observed' for e in O),O;assert len([e for e in T if 'metrics' in s(e.get('source'))])==3;U=[u(e) for e in T if u(e)];assert U==sorted(U),U\""
+    - id: ic-handoff
+      repo: fixtures/ic-handoff
+      task: "Using incident command practice, write handoff.md for the IC handoff in chat.log as it stands at 17:05Z (roster.md has the rotation). Start with the lines `Current IC: <name>`, `Handoff: complete` or `Handoff: pending`, `Next step: <one line>`; then a `## Open actions` section with one bullet per action that is not finished (`- ACT-n — <owner> — <state>`), a `## Hypotheses` section with one bullet per hypothesis (`- Hn — <status>`) and a `## Commitments` section with one bullet per promised update and its time as HH:MMZ."
+      policy: { shell: false, network: false, filesystem: write }
+      timeout_sec: 600
+      check: "python3 -c \"import re;t=open('handoff.md').read();g=lambda k:(re.search(r'(?im)^[^A-Za-z]*'+k+r'[^A-Za-z:]*:(.*)$',t) or [0,''])[1];sec=lambda h:[l for l in (re.split(r'(?im)^#+\\s*'+h+r'.*$',t)+[''])[1].split(chr(10)+'#')[0].splitlines() if l.strip().startswith(('-','*'))];assert 'Ana Silva' in g('Current IC') and 'Sam' not in g('Current IC'),g('Current IC');assert 'pending' in g('Handoff').lower();O=' '.join(sec('Open actions'));assert 'ACT-2' in O and 'ACT-3' in O and 'ACT-1' not in O and 'ACT-4' not in O,O;H=sec('Hypotheses');st=lambda n:' '.join(l for l in H if re.search(n+r'\\b',l)).lower();assert 'rejected' in st('H1') and 'rejected' not in st('H2'),H;C=' '.join(sec('Commitments'));assert '17:15' in C and '17:30' in C,C\""
+    - id: close-or-monitor
+      repo: fixtures/close-or-monitor
+      task: "Using incident command practice, decide whether INC-2291 in incident.md can be closed now. Write decision.md with the lines `State: closed` or `State: monitoring`, `Next review: YYYY-MM-DDTHH:MMZ`, `Exit criteria: <one line>`, then a `## Follow-ups` section with one bullet per follow-up as `- <action> — owner: <name from incident.md> — due: <YYYY-MM-DD or YYYY-MM-DDTHH:MMZ>`."
+      policy: { shell: false, network: false, filesystem: write }
+      timeout_sec: 600
+      check: "python3 -c \"import re;t=open('decision.md').read();g=lambda k:(re.search(r'(?im)^[^A-Za-z]*'+k+r'[^A-Za-z:]*:(.*)$',t) or [0,''])[1];assert g('State').strip().lower().startswith('monitoring'),g('State');m=re.search(r'2026-11-13T(\\d\\d):(\\d\\d)',g('Next review'));assert m and 85<=int(m[1])*60+int(m[2])<=150,g('Next review');F=[l for l in re.split(r'(?im)^#+\\s*Follow-ups.*$',t)[1].splitlines() if l.strip().startswith(('-','*'))];N=('Ana Silva','Dev Patel','Carlos Mendes','Omar Haddad');assert F and all(any(n in l for n in N) and re.search(r'due:\\s*2026-\\d\\d-\\d\\d',l) for l in F),F;d=lambda l:re.search(r'due:\\s*(2026-\\d\\d-\\d\\d)(T\\d\\d:\\d\\d)?',l);S=[l for l in F if 'InvoiceDuplicates' in l];assert any((d(l)[2] and d(l)[1]+d(l)[2]<='2026-11-13T01:00') or (not d(l)[2] and d(l)[1]=='2026-11-12') for l in S),S;assert any('invoice_autosend' in l for l in F),F\""
+conflicts:
+  - { id: against-approved, with: all }
+context:
+  - { id: coder-budget, max_instruction_tokens: 3000, max_description_chars: 160 }
+tools:
+  - { id: read-only, policy: { shell: false, network: false, filesystem: read } }

@@ -1,0 +1,37 @@
+schema: 1
+selection:
+  - { id: offered, repo: fixtures/ci-lockfile-saved-plan, task: "Review the terraform deploy script ci/deploy.sh and make it safer.", expect: offered }
+  - { id: not-offered, repo: fixtures/not-offered, task: "Add a --dry-run option to tool.py that prints the files it would delete without deleting them.", expect: not-offered }
+instructions:
+  repeat: 4
+  scenarios:
+    - id: plan-comment-redaction
+      repo: fixtures/plan-comment-redaction
+      task: "Write scripts/plan_comment.py: it reads the JSON of a terraform plan (output of terraform show -json) given as its first argument and prints a Markdown pull request comment with one bullet per resource the plan creates, updates, replaces, deletes, imports or moves, the action word on the same line as the address, and for updates the changed attribute names with old and new values. It runs as a CI step before anyone approves the apply. Run it on plan.json and also on bad.json, which came from a failed run."
+      policy: { shell: true, network: false, filesystem: write }
+      timeout_sec: 600
+      check: "python3 scripts/plan_comment.py plan.json > comment.md && grep -q 'module.api.aws_lambda_function.this' comment.md && grep -q memory_size comment.md && grep -q password comment.md && grep 'aws_launch_template.app' comment.md | grep -qi replace && grep -q 'aws_s3_bucket.imported' comment.md && grep -q 'aws_s3_bucket.logs' comment.md && grep -q 'aws_iam_role.old' comment.md && ! grep -q 'aws_s3_bucket.unchanged' comment.md && ! grep -Eq 'old-pw|new-pw|old-db-pass|new-db-pass|tok-0000|sec-0001|sig-7777' comment.md && grep -qi sensitive comment.md && grep -qi 'known after apply' comment.md && ! python3 scripts/plan_comment.py bad.json > /dev/null 2>&1"
+    - id: retire-legacy-db
+      repo: fixtures/retire-legacy-db
+      task: "The billing team now manages the billing-legacy database (aws_db_instance.legacy) in their own repository. Change this terraform configuration so it stops managing that database without destroying it; our pipeline only runs terraform plan and apply, nobody can run state commands. Also harden aws_db_instance.orders, aws_s3_bucket.orders_exports and aws_dynamodb_table.orders_index so that a bad terraform change cannot destroy them or lose their data."
+      policy: { shell: true, network: false, filesystem: write }
+      timeout_sec: 600
+      check: "! grep -Eq 'resource[[:space:]]+.aws_db_instance.[[:space:]]+.legacy' *.tf && ! grep -Eq 'aws_db_instance[.]legacy[.]' *.tf && grep -Eq 'from[[:space:]]*=[[:space:]]*aws_db_instance[.]legacy' *.tf && grep -Eq 'destroy[[:space:]]*=[[:space:]]*false' *.tf && grep -Eq 'required_version[[:space:]]*=[[:space:]]*.(>=|~>)[[:space:]]*1[.]([7-9]|[1-9][0-9])' *.tf && grep -Eq 'deletion_protection[[:space:]]*=[[:space:]]*true' *.tf && ! grep -Eq 'skip_final_snapshot[[:space:]]*=[[:space:]]*true' *.tf && grep -q final_snapshot_identifier *.tf && ! grep -Eq 'force_destroy[[:space:]]*=[[:space:]]*true' *.tf && [ $(cat *.tf | grep -Ec 'prevent_destroy[[:space:]]*=[[:space:]]*true') -ge 3 ] && grep -Eq 'skip_final_snapshot[[:space:]]*=[[:space:]]*false' *.tf && grep -Eq 'deletion_protection_enabled[[:space:]]*=[[:space:]]*true' *.tf && ! (grep -v 'from' *.tf | grep -Eq 'aws_db_instance[.]legacy')"
+    - id: extract-replicated-module
+      repo: fixtures/extract-replicated-module
+      task: "Other teams want the same pair of versioned buckets, a primary in their default region and a replica in a second region. Move the four resources from main.tf into a reusable terraform module at modules/replicated-bucket with the bucket names as input variables, and call it from the root with a module block named logs. The existing buckets must not be destroyed or recreated."
+      policy: { shell: true, network: false, filesystem: write }
+      timeout_sec: 600
+      check: "! grep -Eq '^[[:space:]]*provider[[:space:]]+.aws' modules/replicated-bucket/*.tf && grep -q configuration_aliases modules/replicated-bucket/*.tf && grep -Eq '(^|[^_a-z])version[[:space:]]*=[[:space:]]*.>=' modules/replicated-bucket/*.tf && ! grep -Eq '(^|[^_a-z])version[[:space:]]*=[[:space:]]*.(~>|=|[0-9])' modules/replicated-bucket/*.tf && ! grep -Eq 'resource[[:space:]]+.aws_s3_bucket' *.tf && grep -Eq 'aws[.]replica[[:space:]]*=[[:space:]]*aws[.]' *.tf && [ $(cat *.tf | grep -Ec 'to[[:space:]]*=[[:space:]]*module[.]logs[.]') -ge 4 ]"
+    - id: ci-lockfile-saved-plan
+      repo: fixtures/ci-lockfile-saved-plan
+      task: "Our terraform deploy job ci/deploy.sh sometimes applies provider versions and changes that nobody reviewed, and two runs once overwrote each other's state. Fix ci/deploy.sh and .gitignore so the job applies exactly the reviewed plan with the reviewed provider versions; keep the plan file name tfplan and keep each terraform command on one line. Also ci/drift.sh is meant to print DRIFT when terraform finds changes made outside the configuration, but it never does."
+      policy: { shell: true, network: false, filesystem: write }
+      timeout_sec: 600
+      check: "grep -v '^[[:space:]]*#' ci/deploy.sh | grep -q -- '-lockfile=readonly' && ! (grep -v '^[[:space:]]*#' ci/deploy.sh | grep -Eq -- '-upgrade|-lock=false') && grep -v '^[[:space:]]*#' ci/deploy.sh | grep 'terraform apply' | grep -q tfplan && ! (grep -v '^[[:space:]]*#' ci/deploy.sh | grep 'terraform apply' | grep -vq tfplan) && ! grep -Eq '^/?[.]terraform[.]lock[.]hcl[[:space:]]*$' .gitignore && grep -Eq '^/?[*]?tfplan[*]?[[:space:]]*$' .gitignore && grep -Eq '^/?(([*]|terraform)[.]tfstate([.][*]|[*]|[.]backup)|[*][.]backup)[[:space:]]*$' .gitignore && grep -Eq '^/?(plan[.]txt|[*][.]txt)[[:space:]]*$' .gitignore && grep -Eq '^/?crash[.]log' .gitignore && grep -v '^[[:space:]]*#' ci/deploy.sh | grep -q -- '-lock-timeout' && chmod +x bin/terraform && rm -f tf.log && (TF_LOG_FILE=$PWD/tf.log PATH=$PWD/bin:$PATH sh ci/drift.sh | grep -q DRIFT) && grep -q -- '-refresh-only' tf.log && ! grep -q -- '-lock=false' tf.log && ! (TF_STUB_EXIT=0 TF_LOG_FILE=/dev/null PATH=$PWD/bin:$PATH sh ci/drift.sh | grep -q DRIFT) && ! (TF_STUB_EXIT=1 TF_LOG_FILE=/dev/null PATH=$PWD/bin:$PATH sh ci/drift.sh | grep -q DRIFT)"
+conflicts:
+  - { id: against-approved, with: all }
+context:
+  - { id: coder-budget, max_instruction_tokens: 3000, max_description_chars: 160 }
+tools:
+  - { id: read-only, policy: { shell: false, network: false, filesystem: read } }

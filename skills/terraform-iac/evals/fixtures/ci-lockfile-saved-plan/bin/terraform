@@ -1,0 +1,7 @@
+#!/bin/sh
+# Offline stand-in for the terraform binary, used only by the check.
+echo "$*" >> "${TF_LOG_FILE:-/dev/null}"
+case "$*" in
+  *-detailed-exitcode*) exit "${TF_STUB_EXIT:-2}" ;;
+esac
+exit 0

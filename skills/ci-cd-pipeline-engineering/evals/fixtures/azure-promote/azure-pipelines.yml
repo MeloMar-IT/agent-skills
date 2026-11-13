@@ -1,0 +1,55 @@
+trigger:
+  - main
+
+variables:
+  registry: registry.example.com
+  image: shop
+
+pool:
+  vmImage: ubuntu-latest
+
+stages:
+- stage: Build
+  jobs:
+  - job: BuildImage
+    steps:
+    - script: |
+        docker build -t $(registry)/$(image):$(Build.BuildId) .
+        docker push $(registry)/$(image):$(Build.BuildId)
+      displayName: Build and push
+
+- stage: Dev
+  dependsOn: Build
+  jobs:
+  - job: DeployDev
+    steps:
+    - script: |
+        docker build -t $(registry)/$(image):dev .
+        docker push $(registry)/$(image):dev
+      displayName: Rebuild for dev
+    - script: ./deploy.sh dev $(registry)/$(image):dev
+      displayName: Deploy dev
+
+- stage: Prod
+  dependsOn: Dev
+  jobs:
+  - job: DeployProd
+    steps:
+    - script: |
+        docker build -t $(registry)/$(image):prod .
+        docker push $(registry)/$(image):prod
+      displayName: Rebuild for prod
+    - script: ./deploy.sh prod $(registry)/$(image):prod
+      displayName: Deploy prod
+
+- stage: Verify
+  dependsOn: Prod
+  jobs:
+  - job: VerifyProd
+    steps:
+    - script: |
+        docker build -t $(registry)/$(image):verify .
+        docker push $(registry)/$(image):verify
+      displayName: Rebuild for verify
+    - script: ./deploy.sh verify $(registry)/$(image):verify
+      displayName: Verify prod

@@ -1,0 +1,54 @@
+stages:
+  - test
+  - build
+  - deploy
+
+backend_test:
+  stage: test
+  script:
+    - make -C backend test
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH
+
+frontend_test:
+  stage: test
+  script:
+    - make -C frontend test
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH
+
+backend_build:
+  stage: build
+  script:
+    - make -C backend build
+  artifacts:
+    paths:
+      - "*/dist/"
+    expire_in: 1 week
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH
+
+frontend_build:
+  stage: build
+  script:
+    - make -C frontend build
+  artifacts:
+    paths:
+      - "*/dist/"
+    expire_in: 1 week
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH
+
+deploy_production:
+  stage: deploy
+  environment: production
+  needs: [backend_build, frontend_build]
+  script:
+    - ./deploy.sh production
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual

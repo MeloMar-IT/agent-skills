@@ -1,0 +1,13 @@
+[
+{"id": "D0", "environment": "production", "finished_at": "2026-09-30T22:00:00Z", "remediation": "none", "commits": [{"sha": "c0", "committed_at": "2026-09-29T22:00:00Z"}]},
+{"id": "D1", "environment": "production", "finished_at": "2026-10-02T10:00:00Z", "remediation": "none", "commits": [{"sha": "c1", "committed_at": "2026-10-01T10:00:00Z"}, {"sha": "c2", "committed_at": "2026-10-02T04:00:00Z"}]},
+{"id": "S1", "environment": "staging", "finished_at": "2026-10-01T20:00:00Z", "remediation": "none", "commits": [{"sha": "c1", "committed_at": "2026-10-01T10:00:00Z"}]},
+{"id": "D3", "environment": "production", "finished_at": "2026-10-05T18:00:00Z", "remediation": "none", "commits": [{"sha": "c4", "committed_at": "2026-10-05T16:00:00Z"}]},
+{"id": "D2", "environment": "production", "finished_at": "2026-10-05T12:00:00Z", "remediation": "rollback", "commits": [{"sha": "c3", "committed_at": "2026-10-04T12:00:00Z"}]},
+{"id": "S2", "environment": "staging", "finished_at": "2026-10-08T23:00:00Z", "remediation": "rollback", "commits": [{"sha": "c5", "committed_at": "2026-10-07T09:00:00Z"}, {"sha": "c6", "committed_at": "2026-10-08T21:00:00Z"}]},
+{"id": "D4", "environment": "production", "finished_at": "2026-10-09T09:00:00Z", "remediation": "none", "commits": [{"sha": "c5", "committed_at": "2026-10-07T09:00:00Z"}, {"sha": "c6", "committed_at": "2026-10-08T21:00:00Z"}, {"sha": "c7", "committed_at": "2026-10-09T05:00:00Z"}]},
+{"id": "S3", "environment": "staging", "finished_at": "2026-10-12T09:00:00Z", "remediation": "none", "commits": [{"sha": "c8", "committed_at": "2026-10-12T07:00:00Z"}]},
+{"id": "D5", "environment": "production", "finished_at": "2026-10-12T15:00:00Z", "remediation": "hotfix", "commits": [{"sha": "c8", "committed_at": "2026-10-12T07:00:00Z"}]},
+{"id": "D6", "environment": "production", "finished_at": "2026-10-13T15:00:00Z", "remediation": "none", "commits": [{"sha": "c9", "committed_at": "2026-10-13T12:00:00Z"}]},
+{"id": "D7", "environment": "production", "finished_at": "2026-10-15T09:00:00Z", "remediation": "none", "commits": [{"sha": "c10", "committed_at": "2026-10-14T21:00:00Z"}]}
+]

@@ -1,0 +1,33 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: db-backup
+  labels:
+    cluster: ${cluster_name}
+spec:
+  schedule: "0 2 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: db-backup
+          restartPolicy: Never
+          containers:
+            - name: backup
+              image: registry.example.com/tools/pg-aws:1.0
+              command: ["sh", "/scripts/backup.sh"]
+              env:
+                - name: AWS_REGION
+                  value: ${region}
+                - name: DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: db-credentials
+                      key: url
+              volumeMounts:
+                - name: scripts
+                  mountPath: /scripts
+          volumes:
+            - name: scripts
+              configMap:
+                name: db-backup-script

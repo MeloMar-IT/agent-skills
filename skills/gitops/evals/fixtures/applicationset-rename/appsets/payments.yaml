@@ -1,0 +1,31 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: payments
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - list:
+        elements:
+          - cluster: eu1
+            url: https://eu1.k8s.example.com
+          - cluster: us1
+            url: https://us1.k8s.example.com
+  template:
+    metadata:
+      name: 'payments-{{.cluster}}'
+    spec:
+      project: payments
+      source:
+        repoURL: https://git.example.com/pay/gitops.git
+        targetRevision: main
+        path: 'clusters/{{.cluster}}'
+      destination:
+        server: '{{.url}}'
+        namespace: payments
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true

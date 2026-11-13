@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - cronjob.yaml
+  - serviceaccount.yaml
+configMapGenerator:
+  - name: db-backup-script
+    files:
+      - backup.sh
+      - cleanup.sh

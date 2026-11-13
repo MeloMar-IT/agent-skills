@@ -1,0 +1,19 @@
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: policy-selfsigned
+  namespace: policy
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: policy-webhook-tls
+  namespace: policy
+spec:
+  secretName: policy-webhook-tls
+  dnsNames:
+    - policy-webhook.policy.svc
+  issuerRef:
+    name: policy-selfsigned

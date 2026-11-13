@@ -1,0 +1,43 @@
+schema: 1
+selection:
+  - { id: offered-case, repo: fixtures/argocd-hpa-replicas, task: "Review the argocd Application apps/checkout.yaml and the kustomize folder prod/ for sync problems.", expect: offered }
+  - { id: not-offered-case, repo: fixtures/not-offered, task: "Add a --top N option to report.py that prints only the N largest totals.", expect: not-offered }
+instructions:
+  repeat: 4
+  scenarios:
+    - id: argocd-hpa-replicas
+      repo: fixtures/argocd-hpa-replicas
+      task: "In this gitops repo the argocd Application apps/checkout.yaml syncs the kustomize folder prod/. Only the checkout Deployment has a HorizontalPodAutoscaler (prod/hpa.yaml), and at peak every self-heal pulls checkout back to 6 replicas. Make the HPA the only owner of the checkout replica count. This Application is live in production and auto-syncs on merge, so the merge itself must not change the running checkout pods; checkout-worker must keep its Git replica count, and self-heal, auto-sync and pruning must stay on for everything else."
+      policy: { shell: true, network: false, filesystem: write }
+      timeout_sec: 600
+      check: "f=apps/checkout.yaml; grep -q 'RespectIgnoreDifferences=true' $f && grep -q ignoreDifferences $f && grep -Eq '/spec/replicas|[.]spec[.]replicas' $f && grep -Eq 'group:[[:space:]]*.?apps' $f && grep -Eq 'kind:[[:space:]]*.?Deployment' $f && grep -Eq '^[[:space:]]*(-[[:space:]]*)?name:[[:space:]]*.?checkout.?[[:space:]]*$' $f && grep -Eq 'selfHeal:[[:space:]]*true' $f && grep -Eq 'prune:[[:space:]]*true' $f && grep -q 'CreateNamespace=true' $f && ! grep -Eq '^[[:space:]]*replicas:' prod/deployment.yaml && ! grep -Eq '^[[:space:]]*replicas:' prod/scale-peak.yaml && ! (grep -A1 -E 'name:[[:space:]]*.?checkout.?[[:space:]]*$' prod/kustomization.yaml | grep -q count) && grep -Eq '^[[:space:]]*replicas:[[:space:]]*2' prod/worker.yaml && grep -Eq 'minReplicas:[[:space:]]*6' prod/hpa.yaml"
+    - id: argocd-webhook-cabundle
+      repo: fixtures/argocd-webhook-cabundle
+      task: "The argocd app in apps/policy-webhooks.yaml keeps going OutOfSync, and every self-heal blanks the CA bundle that cert-manager's cainjector injects into both webhook configurations in webhooks/, so admission calls fail with x509 errors for a few minutes. It must hold for every webhook in both configurations, however many there are. Fix it in apps/policy-webhooks.yaml and the files in webhooks/ while self-heal and prune keep covering everything else."
+      policy: { shell: true, network: false, filesystem: write }
+      timeout_sec: 600
+      check: "f=apps/policy-webhooks.yaml; grep -q 'RespectIgnoreDifferences=true' $f && grep -q jqPathExpressions $f && grep -Eq '[.]webhooks[[][]][?]?[.]clientConfig[.]caBundle' $f && ! grep -q '/webhooks/0' $f && grep -Eq 'kind:[[:space:]]*.?MutatingWebhookConfiguration' $f && grep -Eq 'kind:[[:space:]]*.?ValidatingWebhookConfiguration' $f && [ $(grep -Ec 'group:[[:space:]]*.?admissionregistration[.]k8s[.]io' $f) -ge 2 ] && grep -Eq 'selfHeal:[[:space:]]*true' $f && grep -Eq 'prune:[[:space:]]*true' $f && ! grep -rq caBundle webhooks && grep -q inject-ca-from webhooks/mutating.yaml && grep -q inject-ca-from webhooks/validating.yaml"
+    - id: flux-helmrelease-hpa
+      repo: fixtures/flux-helmrelease-hpa
+      task: "We enabled flux helm-controller drift detection on the api HelmRelease (apps/api.yaml). Since then the api HorizontalPodAutoscaler (apps/hpa.yaml) and Flux fight: at peak the HPA scales the api Deployment to 15 and Flux sets it back to 4 within minutes. The chart always renders spec.replicas for its Deployments (see CHART.md) and we cannot change the chart. Change only apps/api.yaml: the HPA must own the api replica count, the worker keeps its Helm value, drift detection must keep correcting every other field, and the chart version and remediation settings stay as they are."
+      policy: { shell: true, network: false, filesystem: write }
+      timeout_sec: 600
+      check: "f=apps/api.yaml; grep -Eq 'helm[.]toolkit[.]fluxcd[.]io/v2[[:space:]]*$' $f && grep -Eq 'mode:[[:space:]]*.?enabled' $f && ! grep -Eq 'mode:[[:space:]]*.?(warn|disabled)' $f && grep -Eq '^[[:space:]]+ignore:' $f && grep -q '/spec/replicas' $f && grep -Eq 'kind:[[:space:]]*.?Deployment' $f && grep -Eq 'version:[[:space:]]*.?4[.]2[.]1' $f && [ $(grep -Ec 'retries:[[:space:]]*3' $f) -ge 2 ] && grep -Eq 'minReplicas:[[:space:]]*4' apps/hpa.yaml && grep -Eq 'name:[[:space:]]*.?api.?[[:space:]]*$' $f && ! grep -Eq 'name:[[:space:]]*.?api-worker' $f && grep -Eq 'workerReplicas:[[:space:]]*2' $f"
+    - id: flux-postbuild-escape
+      repo: fixtures/flux-postbuild-escape
+      task: "Since clusters/backup.yaml (a flux Kustomization) got postBuild variables, the nightly database backup and the cleanup job in backup/ fail on every cluster. Fix it. The scripts must keep taking the cluster name and region from those Flux variables, and the variables must keep working for the rest of the backup folder."
+      policy: { shell: true, network: false, filesystem: write }
+      timeout_sec: 600
+      check: "s=backup/backup.sh; grep -Eq '(^|[^$])[$][{]cluster_name[}]' $s && grep -Eq '(^|[^$])[$][{]region[}]' $s && ! grep -Eq '(^|[^$])[$][{](BACKUP_DIR|DATE|DATABASE_URL)[}]' $s && grep -Eq '[$][$][{]BACKUP_DIR[}]|[$]BACKUP_DIR' $s && grep -Eq '[$][$][{]DATE[}]|[$]DATE' $s && grep -Eq '[$][$][{]DATABASE_URL[}]|[$]DATABASE_URL' $s && grep -q pg_dump $s && grep -q 's3://' $s && ! grep -rEq 'substitute:[[:space:]]*.?disabled' . && grep -q postBuild clusters/backup.yaml && grep -Eq 'cluster_name:[[:space:]]*.?prod-eu1' clusters/backup.yaml && grep -Eq '[$][{]cluster_name[}]' backup/serviceaccount.yaml && grep -q backup.sh backup/kustomization.yaml && ! grep -Eq '(^|[^$])[$][{](BACKUP_DIR|KEEP)[}]' backup/cleanup.sh && grep -q cleanup.sh backup/kustomization.yaml && grep -Eq '(^|[^$])[$][{]cluster_name[}]' backup/cleanup.sh"
+    - id: applicationset-rename
+      repo: fixtures/applicationset-rename
+      task: "Our argocd naming standard changed: the Applications generated by the applicationset in appsets/payments.yaml must be named <cluster>-payments-api (for example eu1-payments-api) instead of payments-<cluster>. Make the change in appsets/payments.yaml and write the order of the rollout steps for the platform team in appsets/ROLLOUT.md; payments runs live on both clusters; auto-sync with prune and self-heal stays on."
+      policy: { shell: true, network: false, filesystem: write }
+      timeout_sec: 600
+      check: "f=appsets/payments.yaml; grep -Eq 'name:[[:space:]]*.?[{][{][[:space:]]*[.]cluster[[:space:]]*[}][}]-payments-api.?[[:space:]]*$' $f && grep -Eq '^    preserveResourcesOnDeletion:[[:space:]]*true' $f && ! grep -q resources-finalizer $f && ! grep -Eq 'applicationsSync:[[:space:]]*.?create-(only|update)' $f && grep -Eq 'prune:[[:space:]]*true' $f && grep -Eq 'selfHeal:[[:space:]]*true' $f && grep -q 'goTemplate: true' $f && grep -q 'clusters/{{.cluster}}' $f && grep -q preserveResourcesOnDeletion appsets/ROLLOUT.md && grep -qi finalizer appsets/ROLLOUT.md && grep -q eu1.k8s.example.com $f && grep -q us1.k8s.example.com $f"
+conflicts:
+  - { id: against-approved, with: all }
+context:
+  - { id: coder-budget, max_instruction_tokens: 3000, max_description_chars: 160 }
+tools:
+  - { id: read-only, policy: { shell: false, network: false, filesystem: read } }

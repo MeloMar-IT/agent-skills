@@ -1,0 +1,25 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: api
+  namespace: flux-system
+spec:
+  interval: 10m
+  chart:
+    spec:
+      chart: example-api
+      version: "4.2.1"
+      sourceRef:
+        kind: HelmRepository
+        name: example
+  driftDetection:
+    mode: enabled
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  values:
+    replicaCount: 4
+    workerReplicas: 2

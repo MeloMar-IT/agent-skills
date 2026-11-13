@@ -1,0 +1,29 @@
+- name: orders-api
+  hpa_max_replicas: 20
+  client_pool_size: 20
+  connects_via: shop
+  role: app_rw
+- name: catalog-api
+  hpa_max_replicas: 12
+  client_pool_size: 10
+  connects_via: shop
+  role: app_ro
+- name: reports-worker
+  replicas: 2
+  client_pool_size: 4
+  connects_via: shop_reporting
+  role: reporting
+- name: ledger-cron
+  kind: CronJob
+  concurrencyPolicy: Forbid
+  connects_via: direct postgres port 5432
+  database: shop
+  role: app_rw
+  client_pool_max: 8
+- name: import-job
+  kind: Job
+  parallelism: 2
+  connects_via: direct postgres port 5432
+  database: shop
+  role: app_rw
+  client_pool_max: 3

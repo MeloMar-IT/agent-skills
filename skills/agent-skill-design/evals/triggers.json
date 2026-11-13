@@ -1,0 +1,18 @@
+[
+  {"query": "my SKILL.md description never makes the agent pick the skill, can you rewrite it", "should_trigger": true},
+  {"query": "split this 400 line skill file so agents load less per request", "should_trigger": true},
+  {"query": "write trigger evals with near-miss negatives for this agent skill", "should_trigger": true},
+  {"query": "make this skill's scripts safe for an agent with no terminal", "should_trigger": true},
+  {"query": "the skill reads files outside its folder and breaks when copied to another repo", "should_trigger": true},
+  {"query": "port my Claude Code skill to another client without losing the disable-model-invocation guard", "should_trigger": true},
+  {"query": "lint the skill frontmatter: name must match the folder and the description is too long", "should_trigger": true},
+  {"query": "two of our skills overlap and agents load the wrong one, fix their descriptions", "should_trigger": true},
+  {"query": "create a new skill in this library from the template", "should_trigger": false},
+  {"query": "write a GitHub issue for the skill that the Foundry rejected", "should_trigger": false},
+  {"query": "update the runbook for the skill service so the alert links to its steps", "should_trigger": false},
+  {"query": "add a runbook step that restarts the skill worker with auto-remediation", "should_trigger": false},
+  {"query": "set up a CI pipeline that tests the skill scripts on every push", "should_trigger": false},
+  {"query": "speed up the pipeline stage that packages the skill folder", "should_trigger": false},
+  {"query": "file an issue describing what the skill evals should measure", "should_trigger": false},
+  {"query": "fill in the example-skill template placeholders for a new SKILL.md", "should_trigger": false}
+]

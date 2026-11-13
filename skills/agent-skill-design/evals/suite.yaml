@@ -1,0 +1,43 @@
+schema: 1
+selection:
+  - { id: offered-case, repo: fixtures/split-bloated-skill, task: "Agents here keep picking the wrong agent skills and tilepack/SKILL.md is 420 lines long; tidy it up.", expect: offered }
+  - { id: other-case, repo: fixtures/not-offered, task: "Add a --currency option to invoice.py that prints totals with the currency code.", expect: not-offered }
+instructions:
+  repeat: 4
+  scenarios:
+    - id: skill-descriptions
+      repo: fixtures/skill-descriptions
+      task: "Fix the skill descriptions of pdf-forms, pdf-reports and doc-review (frontmatter description: only) so agents pick the right skill for the requests in README.md. Keep names and bodies unchanged."
+      policy: { shell: true, network: false, filesystem: write }
+      timeout_sec: 600
+      check: "python3 -c 'import re,pathlib as P;N=[\"pdf-forms\",\"pdf-reports\",\"doc-review\"];B={\"pdf-forms\":\"scripts/fill_form.py\",\"pdf-reports\":\"scripts/render_report.py\",\"doc-review\":\"checklist.md\"};NOT=\"(?<![A-Za-z])not(?![A-Za-z])[^.]*\";A={\"pdf-forms\":[\"fill|field\",NOT+\"report\"],\"pdf-reports\":[\"report\",NOT+\"form\"],\"doc-review\":[\"contract|nda|clause\",NOT+\"(pdf|form|report)\"]};T={n:P.Path(n+\"/SKILL.md\").read_text().split(\"---\",2) for n in N};L={n:T[n][1].strip().splitlines() for n in N};V={n:[l for l in L[n] if l.startswith(\"description:\")][0].split(\":\",1)[1].strip().strip(chr(34)+chr(39)) for n in N};assert all((\"name: \"+n) in L[n] and len(L[n])==2 and B[n] in T[n][2] and 0<len(V[n])<=1024 and re.match(\"^[A-Z][a-z]+s(?![A-Za-z0-9_])\",V[n]) and \"Use when\" in V[n] and not re.search(\"(?<![A-Za-z])I(?![A-Za-z])|I.m|(?<![A-Za-z])my(?![A-Za-z])\",V[n]) and all(re.search(p,V[n],re.I) for p in A[n]) for n in N)'"
+    - id: trigger-eval-set
+      repo: fixtures/trigger-eval-set
+      task: "Write trigger evals for the csv-repair skill as csv-repair/evals/triggers.json, a JSON list of {\"query\": \"some user request\",\"should_trigger\": true|false}, so a change to its description can be tested against the neighbouring skills in this repo."
+      policy: { shell: true, network: false, filesystem: write }
+      timeout_sec: 600
+      check: "python3 -c 'import json,re;D=json.load(open(\"csv-repair/evals/triggers.json\"));assert isinstance(D,list) and all(isinstance(d,dict) and isinstance(d.get(\"query\"),str) and len(d[\"query\"].split())>=4 and isinstance(d.get(\"should_trigger\"),bool) for d in D);P=[d[\"query\"] for d in D if d[\"should_trigger\"]];Q=[d[\"query\"].lower() for d in D if not d[\"should_trigger\"]];assert len(P)>=8 and len(Q)>=8 and abs(len(P)-len(Q))<=4;assert len({d[\"query\"].lower() for d in D})==len(D);assert all(any(re.search(p,q) and \"csv\" in q for q in Q) for p in [\"postgres|psql|(?<![a-z])copy(?![a-z])|database\",\"matplotlib|chart|plot|graph\",\"excel|xlsx|spreadsheet\"]);assert 2*sum(\"csv\" in q for q in Q)>=len(Q);assert sum(\"repair\" not in q.lower() for q in P)>=3'"
+    - id: split-bloated-skill
+      repo: fixtures/split-bloated-skill
+      task: "Use progressive disclosure to shrink tilepack/SKILL.md: agents load all 420 lines for every request. Keep every fact."
+      policy: { shell: true, network: false, filesystem: write }
+      timeout_sec: 600
+      check: "python3 -c 'import re,pathlib as P;R=P.Path(\"tilepack\");S=(R/\"SKILL.md\").read_text();FM=S.split(\"---\",2)[1].strip().splitlines();RF=list((R/\"references\").glob(\"*\"));M=[x for x in RF if x.suffix==\".md\"];A=S+\"\".join(x.read_text() for x in M);LK=re.findall(\"[]][(]([^)#]+)[)]\",S);assert \"name: tilepack\" in FM and \"description: Builds, verifies and publishes map tile packs with the tilepack CLI. Use when packaging tiles; not for rendering maps (use map-render).\" in FM;assert len(S.splitlines())<=100;assert len(M)>=2 and not any(x.is_dir() for x in RF);assert all((\"references/\"+x.name) in LK for x in M) and all((R/l).exists() for l in LK if not l.startswith(\"http\"));assert all(\"EX-%02d\"%i in A for i in range(1,81)) and sum(\"EX-%02d\"%i in S for i in range(1,81))<=10;FL=set(re.findall(\"(?<![-A-Za-z0-9])--[a-z][a-z0-9-]*\",A));assert len(FL)>=60 and {\"--zoom-max\",\"--split\",\"--overwrite\",\"--checksum\"}<=FL;assert \"tilepack verify\" in S and \"--split\" in S and re.search(\"production.{0,80}--overwrite|--overwrite.{0,80}production\",S,re.I) and re.search(\"--zoom-max.{0,80}--split|--split.{0,80}--zoom-max\",S) and all(re.search(\"(?<![A-Za-z])(when|if)(?![A-Za-z])\",l,re.I) for l in S.splitlines() if \"](references/\" in l) and all(len(x.read_text().splitlines())<=200 for x in M)'"
+    - id: agent-ready-script
+      repo: fixtures/agent-ready-script
+      task: "Make prune.py an agent-ready script: agents run it with no terminal and parse what it prints. Keep python3 prune.py DIR DAYS as the way to call it."
+      policy: { shell: true, network: false, filesystem: write }
+      timeout_sec: 600
+      check: "python3 -c 'import subprocess as sp,tempfile as T,os,time,json;S=os.path.abspath(\"prune.py\");r=lambda a:sp.run([\"python3\",S]+a,stdin=sp.DEVNULL,capture_output=True,text=True,timeout=20);mk=lambda:(lambda d:(open(d+\"/old.log\",\"w\").close(),open(d+\"/new.log\",\"w\").close(),os.utime(d+\"/old.log\",(time.time()-40*86400,)*2),d)[-1])(T.mkdtemp());h=r([\"--help\"]);assert h.returncode==0 and \"days\" in (h.stdout+h.stderr).lower();d=mk();p=r([d,\"30\"]);assert p.returncode==0 and \"old.log\" in p.stdout and os.path.exists(d+\"/old.log\") and os.path.exists(d+\"/new.log\") and chr(27)+\"[\" not in p.stdout+p.stderr;j=r([d,\"30\",\"--json\"]);s=json.dumps(json.loads(j.stdout));assert j.returncode==0 and \"old.log\" in s and \"new.log\" not in s;t=lambda f:(lambda e:(lambda a:a.returncode==0 and not os.path.exists(e+\"/old.log\") and os.path.exists(e+\"/new.log\") and r([e,\"30\",f]).returncode==0)(r([e,\"30\",f])))(mk());assert any(t(f) for f in [\"--yes\",\"-y\",\"--force\",\"--confirm\",\"--apply\",\"--execute\"]);m=r([d+\"/nope\",\"30\"]);assert m.returncode!=0 and m.stderr.strip() and not m.stdout.strip();b=r([d,\"abc\"]);assert b.returncode!=0 and b.stderr.strip()'"
+    - id: self-contained-skill
+      repo: fixtures/self-contained-skill
+      task: "Make release-notes a self-contained skill: it must work when the release-notes folder alone is copied into another repository's skills folder. It stays a Claude Code skill. Keep the file names of the template and the style guide, and leave the repo-root files in place."
+      policy: { shell: true, network: false, filesystem: write }
+      timeout_sec: 600
+      check: "python3 -c 'import subprocess as sp,tempfile as T,shutil,os,re,glob;base=sp.run([\"python3\",\"scripts/render_notes.py\",\"changes.txt\"],capture_output=True,text=True);assert base.returncode==0;t=T.mkdtemp();c=t+\"/skills/release-notes\";shutil.copytree(\"release-notes\",c);q=lambda:sp.run([\"python3\",c+\"/scripts/render_notes.py\",os.path.abspath(\"changes.txt\")],cwd=t,capture_output=True,text=True,timeout=30);r1=q();assert r1.returncode==0 and r1.stdout==base.stdout;tm=glob.glob(c+\"/**/*.tmpl\",recursive=True);assert len(tm)==1;open(tm[0],\"a\").write(chr(10)+\"ZZ-MARK\");assert \"ZZ-MARK\" in q().stdout;fs=[f for f in glob.glob(c+\"/**/*\",recursive=True) if os.path.isfile(f)];X=[open(f,errors=\"ignore\").read() for f in fs];assert all(not((\".\"*2+\"/\") in x or \"/Users/\" in x or \"/home/\" in x) for x in X);assert any(\"past tense\" in x for x in X);S=open(c+\"/SKILL.md\").read();assert all(os.path.exists(c+\"/\"+m[0]) for m in re.findall(\"`((scripts|references|assets)/[^` ]+)`\",S));assert re.search(\"^disable-model-invocation: *true\",S,re.M);assert \"/assets/\" in tm[0] and any(f.endswith(\"style.md\") and \"/references/\" in f for f in fs);assert not re.search(\"repo(sitory)? root\",S,re.I) and \"scripts/render_notes.py\" in S'"
+conflicts:
+  - { id: against-approved, with: all }
+context:
+  - { id: coder-budget, max_instruction_tokens: 3000, max_description_chars: 160 }
+tools:
+  - { id: read-only, policy: { shell: false, network: false, filesystem: read } }

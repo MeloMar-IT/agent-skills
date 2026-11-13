@@ -1,0 +1,5 @@
+feat: added export to CSV
+fix: corrected the date parser
+feat: added dark mode
+chore: bumped dependencies
+fix: stopped crash on empty input

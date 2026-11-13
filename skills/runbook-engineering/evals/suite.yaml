@@ -1,0 +1,37 @@
+schema: 1
+selection:
+  - { id: offered-links, repo: fixtures/runbook-links, task: "Add runbook links to the alert rules so on-call can open the runbook from the page.", expect: offered }
+  - { id: not-offered-healthz, repo: fixtures/not-offered, task: "Add a GET /healthz route to server.js that returns 200 with JSON {\"status\":\"ok\"}.", expect: not-offered }
+instructions:
+  repeat: 4
+  scenarios:
+    - id: runbook-freshness
+      repo: fixtures/runbook-freshness
+      task: "Audit runbook freshness and ownership for runbooks/. Treat today as 2026-11-13. The repo has no written review policy, so use standard practice for paging and non-paging runbooks. Write freshness-report.json: an object keyed by file name, each value {\"stale\": bool, \"owned\": bool}."
+      policy: { shell: true, network: false, filesystem: write }
+      timeout_sec: 600
+      check: "python3 -c \"import json,os;r={os.path.basename(k):v for k,v in json.load(open('freshness-report.json')).items()};e={'payments-5xx.md':(False,True),'disk-full.md':(False,True),'queue-backlog.md':(True,True),'cert-expiry.md':(True,True),'db-failover.md':(True,False),'cache-evict.md':(False,False)};bad=[k for k in e if (r.get(k,{}).get('stale'),r.get(k,{}).get('owned'))!=e[k]];assert not bad and len(r)==6,bad\""
+    - id: runbook-links
+      repo: fixtures/runbook-links
+      task: "Fix the runbook links: every alert in alerts/rules.yml must link to its published runbook page, with a draft stub only where no runbook covers the alert, and every Slack notification from alertmanager/ must show a working runbook link for each alert in it."
+      policy: { shell: true, network: false, filesystem: write }
+      timeout_sec: 600
+      check: "python3 -c \"import re,glob,os;S='https://runbooks.example.com/';T=open('alerts/rules.yml').read();B=[b for b in re.split(r'(?m)^\\s*-\\s+(?=alert:|record:)',T) if b.startswith('alert:')];U={re.match(r'alert:\\s*(\\w+)',b).group(1):re.findall(r'runbook_url:\\s*[\\x27\\x22]?([^\\x27\\x22\\s]+)',b) for b in B};P=lambda u:'runbooks/'+u[len(S):-5]+'.md';bad=[n for n,u in U.items() if len(u)!=1 or not u[0].startswith(S) or not u[0].endswith('.html') or not os.path.isfile(P(u[0])) or n not in open(P(u[0])).read()];A=''.join(open(f).read() for f in glob.glob('alertmanager/*'));assert len(U)==6 and not bad,bad;assert len(glob.glob('runbooks/**/*.md',recursive=True))==5;assert U['CertExpiringSoon'][0].endswith('/tls/index.html') and U['NodeDiskFull'][0].endswith('/disk-space.html');st=open(P(U['KafkaLagHigh'][0])).read();assert re.search(r'status:\\s*[\\x27\\x22]?draft',st) and re.search(r'owner:\\s*[\\x27\\x22]?team-data',st);assert not re.search(r'last_reviewed:\\s*[\\x27\\x22]?\\d',st) and re.search(r'severity:\\s*[\\x27\\x22]?ticket',st);assert 'annotations' not in T.split('alert:')[0];assert re.search(r'range[^}]*\\.Alerts',A) and 'Annotations.runbook_url' in A and 'CommonAnnotations.runbook_url' not in A\""
+    - id: auto-remediation
+      repo: fixtures/auto-remediation
+      task: "Add auto-remediation for step 2 of RUNBOOK.md as remediate.py. Interface: python3 remediate.py [--execute] [--max-targets N]. Use only python3 fakectl.py (get pods -o json, delete pod NAME); never read the JSON files directly. Keep no state between runs (the alert pipeline rate-limits). Exit 0 only for a dry run or when every selected pod was fixed; otherwise exit non-zero so a human is paged."
+      policy: { shell: true, network: false, filesystem: write }
+      timeout_sec: 600
+      check: "rm -f t.log; PODS_FILE=pods.json ACTIONS_LOG=t.log python3 remediate.py --max-targets 2 && test ! -s t.log && ! PODS_FILE=pods-wide.json ACTIONS_LOG=t.log python3 remediate.py --execute --max-targets 2 && test ! -s t.log && PODS_FILE=pods.json ACTIONS_LOG=t.log python3 remediate.py --execute --max-targets 2 && test \"$(sort -u t.log | tr '\\n' ' ')\" = \"delete worker-a delete worker-b \" && rm -f t.log && ! FAIL_ON=worker-a PODS_FILE=pods.json ACTIONS_LOG=t.log python3 remediate.py --execute --max-targets 2 && test \"$(sort -u t.log | wc -l | tr -d ' ')\" = 1"
+    - id: rewrite-unsafe-runbook
+      repo: fixtures/rewrite-unsafe-runbook
+      task: "Rewrite RUNBOOK.md following runbook writing practice so an on-call engineer can follow it safely at 3 a.m.; keep it about kubectl and this service."
+      policy: { shell: true, network: false, filesystem: write }
+      timeout_sec: 600
+      check: "python3 -c 'import re;t=open(\"RUNBOOK.md\").read().replace(chr(92)+chr(10),\" \");L=[l for l in t.splitlines() if re.match(r\"^\\s*(?:[-*]\\s+)?(?:\\d+[.)]\\s+)?[\\x60$ ]*kubectl\\s\",l)];C=[l for l in L if not re.search(r\"kubectl\\s+config\\s+(current-context|get-contexts)\",l)];assert len(C)>=3;assert all(re.search(r\"--context[= ]prod-eu-1\\b\",l) and re.search(r\"(\\s-n[= ]?payments\\b|--namespace[= ]payments\\b)\",l) for l in C);assert not any(re.search(r\"use-context|--all\\b|\\s-A\\b\",l) for l in L);assert not any(re.search(r\"&&|;\",l) for l in C);assert any(re.search(r\"rollout\\s+(restart|undo)|\\sscale\\s|\\sdelete\\s\",l) for l in C);M=t.splitlines();S=[i for i,l in enumerate(M) if l in C and re.search(r\"rollout\\s+(restart|undo)|\\sscale\\s|\\sdelete\\s\",l)];assert all(any(\"DANGER\" in x.upper() for x in M[max(0,i-6):i]) for i in S);assert t.lower().count(\"expected output\")>=3;assert \"payments-oncall\" in t and re.search(r\"\\d+\\s*min\",t);assert any(re.search(r\"rollout\\s+status|\\swait\\s\",l) and \"--timeout\" in l for l in C)'"
+conflicts:
+  - { id: against-approved, with: all }
+context:
+  - { id: coder-budget, max_instruction_tokens: 3000, max_description_chars: 160 }
+tools:
+  - { id: read-only, policy: { shell: false, network: false, filesystem: read } }

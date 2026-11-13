@@ -1,0 +1,11 @@
+route:
+  receiver: slack-ops
+  group_by: [team, severity]
+  group_wait: 30s
+receivers:
+  - name: slack-ops
+    slack_configs:
+      - api_url_file: slack-webhook-url
+        channel: "#ops-alerts"
+        title: "{{ .CommonLabels.team }}: {{ .Status }}"
+        text: "Runbook: {{ .CommonAnnotations.runbook_url }}"

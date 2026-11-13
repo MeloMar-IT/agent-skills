@@ -1,0 +1,4 @@
+site_name: Runbooks
+site_url: https://runbooks.example.com/
+docs_dir: runbooks
+use_directory_urls: false

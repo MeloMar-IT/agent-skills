@@ -1,0 +1,7 @@
+{"items": [
+  {"metadata": {"name": "worker-a", "labels": {"app": "worker"}}, "status": {"phase": "Running", "containerStatuses": [{"restartCount": 7, "state": {"waiting": {"reason": "CrashLoopBackOff"}}}]}},
+  {"metadata": {"name": "worker-b", "labels": {"app": "worker"}}, "status": {"phase": "Running", "containerStatuses": [{"restartCount": 6, "state": {"waiting": {"reason": "CrashLoopBackOff"}}}]}},
+  {"metadata": {"name": "worker-c", "labels": {"app": "worker"}}, "status": {"phase": "Running", "containerStatuses": [{"restartCount": 0, "state": {"running": {"startedAt": "2026-11-12T10:00:00Z"}}}]}},
+  {"metadata": {"name": "worker-d", "labels": {"app": "worker"}}, "status": {"phase": "Running", "containerStatuses": [{"restartCount": 2, "state": {"waiting": {"reason": "CrashLoopBackOff"}}}]}},
+  {"metadata": {"name": "api-x", "labels": {"app": "api"}}, "status": {"phase": "Running", "containerStatuses": [{"restartCount": 9, "state": {"waiting": {"reason": "CrashLoopBackOff"}}}]}}
+]}
